@@ -1,0 +1,4 @@
+'''openssl req -x509 -newkey rsa:4096 -sha256 -nodes \
+    -keyout $CA_DIR/CA.key -out $CA_DIR/CA.crt \
+    -subj "/C=IT/ST=PR/L=Parma/O=MineMeld/OU=TBD/CN=please use a real CA/emailAddress=techbizdev@paloaltonetworks.com" \
+    -days 3650'''
