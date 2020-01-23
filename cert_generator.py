@@ -12,42 +12,31 @@ ca_subj = '/C=NL/ST=NH/L=Ams/O=DKCorp/OU=SOC/CN=ca.server/emailAddress=darren@em
 client_dir = '/app/certs/client'
 server_dir = '/app/certs/Server'
 
-#server_subj = '/C=NL/ST=NH/L=Ams/O=TelcoMedia/OU=TV/CN=ca.server/emailAddress=telcomediasoc@telcomedia.no'
-
 
 def generate_ca_cert():
 
-
     #openssl command for generating the public CA Cert and private key file
-    cert_options = ['openssl','req','-x509','-newkey','rsa:4096','-sha256','-nodes','-keyout',ca_key_path,'-out',
-                    ca_cert_path,'-subj',ca_subj]
+    cert_options = ['openssl', 'req', '-x509', '-newkey', 'rsa:4096', '-sha256', '-nodes', '-keyout', ca_key_path,
+                    '-out', ca_cert_path, '-subj', ca_subj]
     run_shell_command(cert_options)
     sign_ca_cert()
-
-    #TODO package file into a zip perhaps?
 
 
 def sign_ca_cert():
     create_ca_self_signing_request()
 
-    sign_cert= ['openssl','x509','-req','-days','365','-in',ca_csr_path,'-CA',ca_cert_path,'-CAkey',ca_key_path,
-                '-CAcreateserial','-out',ca_signed_cert]
+    sign_cert = ['openssl', 'x509', '-req', '-days', '365', '-in', ca_csr_path, '-CA', ca_cert_path, '-CAkey',
+                ca_key_path, '-CAcreateserial', '-out', ca_signed_cert]
 
     run_shell_command(sign_cert)
 
 
 def create_ca_self_signing_request():
-    sign_request = ['openssl','req','-new','-sha256','-key',ca_key_path,'-out',ca_csr_path,'-subj',ca_subj]
+    sign_request = ['openssl', 'req', '-new', '-sha256', '-key', ca_key_path, '-out', ca_csr_path, '-subj', ca_subj]
     run_shell_command(sign_request)
 
+
 def generate_private_key(key_file):
-
-    #take in file name as this can be used for servers and clients.
-
-    #TODO take -subj field as variable as it should be different each request
-    key_options=['openssl','req','-x509','-newkey','rsa:4096','-nodes','-keyout',key_file,'-subj',
-                 '/C=NL/ST=NH/L=Ams/O=MineMeld/OU=TBD/'
-                 'CN=ca.server/emailAddress=darren@email.me']
 
     gen_key = ['openssl', 'genrsa', '-out', key_file, '4096']
 
@@ -56,6 +45,7 @@ def generate_private_key(key_file):
 
 
 def run_shell_command(command):
+    #TODO Add error handling to places that use this
     process = subprocess.Popen(command,
                                stdout=subprocess.PIPE)
 
@@ -64,41 +54,37 @@ def run_shell_command(command):
     return stdout,stderr
 
 def generate_ca_signed_cert(csr_file,signed_cert):
-    cert_options=['openssl', 'x509', '-req', '-days', '365', '-in', csr_file, '-CA', ca_cert_path, '-CAkey', ca_key_path,
-                  '-CAcreateserial', '-out', signed_cert]
+
+    cert_options = ['openssl', 'x509', '-req', '-days', '365', '-in', csr_file, '-CA', ca_cert_path, '-CAkey', ca_key_path,
+                    '-CAcreateserial', '-out', signed_cert]
     run_shell_command(cert_options)
 
 
 def generate_signing_request(key_file,csr_file,subj):
-    sign_options = ['openssl', 'req', '-new','-sha256','-key',key_file,'-out',csr_file, '-subj',subj]
+    sign_options = ['openssl', 'req', '-new', '-sha256', '-key', key_file, '-out', csr_file, '-subj', subj]
     run_shell_command(sign_options)
 
 
+def create_server_cert_bundle(server_name, cert_subj):
 
-def generate_server_cert_bundle():
-
-    #TODO take in a dictionary with these values stored in it from original call
-
-    server_name = "server1"
     server_cert_dir=server_dir+"/"+server_name
     try:
         os.mkdir(server_cert_dir)
-    except:
-        print("NO")
-    server_key=server_cert_dir+"/"+"server1-key.pem"
-    server_csr = server_cert_dir+"/"+"server1-csr.pem"
-    server_subj= '/C=NL/ST=NH/L=Ams/O=TelcoMedia/OU=TV/CN=ca.server/emailAddress=telcomediasoc@telcomedia.no'
+    except OSError:
+        print("Problem creating "+server_name+" directory")
+    server_key = server_cert_dir+"/"+server_name+"-key.pem"
+    server_csr = server_cert_dir+"/"+server_name+"-csr.pem"
+
     server_signed_cert = server_cert_dir+"/"+server_name+"-signed-cert.pem"
-    print("All good")
+    output_tar = server_name+"-cert-bundle.tgz"
 
     generate_private_key(server_key)
-    print("all good again")
-    generate_signing_request(server_key, server_csr,server_subj)
-    print("all great")
-    generate_ca_signed_cert(server_csr,server_signed_cert)
+    generate_signing_request(server_key, server_csr, cert_subj)
+    generate_ca_signed_cert(server_csr, server_signed_cert)
 
-    #TODO generate tar with server certs
-    create_tarball(server_cert_dir,server_name+'cert-bundle.tgz')
+    create_tarball(server_cert_dir, output_tar)
+
+    return server_cert_dir+"/"+output_tar
 
 
 def create_tarball(cert_dir_path, output_name):
@@ -107,5 +93,22 @@ def create_tarball(cert_dir_path, output_name):
         tar.add(cert_dir_path, arcname=os.path.basename(cert_dir_path))
 
 
-def create_client_cert_bundle():
-    pass
+def create_client_cert_bundle(client_name, cert_subj):
+    client_cert_dir = client_dir+"/"+client_name
+    try:
+        os.mkdir(client_cert_dir)
+    except OSError:
+        print("Problem creating "+client_name+" directory")
+    server_key = client_cert_dir+"/"+client_name+"-key.pem"
+    server_csr = client_cert_dir+"/"+client_name+"-csr.pem"
+
+    server_signed_cert = client_cert_dir+"/"+client_name+"-signed-cert.pem"
+    output_tar = client_name+"-cert-bundle.tgz"
+
+    generate_private_key(server_key)
+    generate_signing_request(server_key, server_csr, cert_subj)
+    generate_ca_signed_cert(server_csr, server_signed_cert)
+
+    create_tarball(client_cert_dir, output_tar)
+
+    return client_cert_dir+"/"+output_tar
