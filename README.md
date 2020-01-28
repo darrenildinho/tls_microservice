@@ -40,7 +40,7 @@ wget --header='Content-Type: application/json' --post-data '{"servername":"serve
 
 Sample for generating client cert bundle
 ```bash
-wget --header='Content-Type: application/json' --post-data '{"clientname":"client2", "cert_data": "/C=IE/ST=WD/L=Kill/O=Mine/OU=TBD/CN=tls_microservice/emailAddress=test@testable.test"}' -O server.tgz http://localhost:5000/server-cert-bundle
+wget --header='Content-Type: application/json' --post-data '{"clientname":"client2", "cert_data": "/C=IE/ST=WD/L=Kill/O=Mine/OU=TBD/CN=tls_microservice/emailAddress=test@testable.test"}' -O server.tgz http://localhost:5000/client-cert-bundle
 ```
 
 These will return a .tgz file including the hosts public cert, private key and ca signed certificates used for mutual authentication.
