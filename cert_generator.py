@@ -1,8 +1,9 @@
 import subprocess
 import os
 import tarfile
+from shutil import copyfile
 
-
+ca_bundle = "/app/certs/CA/bundle"
 ca_cert_path = "/app/certs/CA/ca-cert.pem"
 ca_key_path = "/app/certs/CA/ca-key.pem"
 ca_csr_path = '/app/certs/CA/CA.csr'
@@ -20,6 +21,16 @@ def generate_ca_cert():
                     '-out', ca_cert_path, '-subj', ca_subj]
     run_shell_command(cert_options)
     sign_ca_cert()
+
+    try:
+        os.mkdir(ca_bundle)
+    except OSError:
+        print("Problem creating "+ca_bundle+" directory")
+
+    copyfile(ca_cert_path, ca_bundle+"/ca-cert.pem")
+    copyfile(ca_signed_cert, ca_bundle+"/ca.csr")
+
+    create_tarball(ca_bundle, "ca-bundle.tgz")
 
 
 def sign_ca_cert():
@@ -43,31 +54,44 @@ def generate_private_key(key_file):
     run_shell_command(gen_key)
 
 
-
 def run_shell_command(command):
     #TODO Add error handling to places that use this
-    process = subprocess.Popen(command,
-                               stdout=subprocess.PIPE)
 
-    stdout, stderr = process.communicate()
+    #Need to look at this error handling more, Very generic but for some reason if I try to return stderr it causes
+    #all commands to fail running. Added very generic error handling for now as the shell commands dont rely on
+    #output of previous commands so I'll get away with it.
 
-    return stdout,stderr
+    # process = subprocess.Popen(command,
+    #                            stderr=subprocess.PIPE
+    #                            )
+    #
+    # stdout, stderr = process.communicate()
+    #
+    # return stdout, stderr
 
-def generate_ca_signed_cert(csr_file,signed_cert):
+    try:
+        subprocess.check_call(command, stdout=subprocess.PIPE
+                              )
+    except subprocess.CalledProcessError as e:
+        command_string = ' '.join([str(x) for x in command])
+        return "Command "+command_string + "Returned with Error code -"+e.returncode
 
-    cert_options = ['openssl', 'x509', '-req', '-days', '365', '-in', csr_file, '-CA', ca_cert_path, '-CAkey', ca_key_path,
-                    '-CAcreateserial', '-out', signed_cert]
+
+def generate_ca_signed_cert(csr_file, signed_cert):
+
+    cert_options = ['openssl', 'x509', '-req', '-days', '365', '-in', csr_file, '-CA', ca_cert_path, '-CAkey',
+                    ca_key_path, '-CAcreateserial', '-out', signed_cert]
     run_shell_command(cert_options)
 
 
-def generate_signing_request(key_file,csr_file,subj):
+def generate_signing_request(key_file, csr_file, subj):
     sign_options = ['openssl', 'req', '-new', '-sha256', '-key', key_file, '-out', csr_file, '-subj', subj]
     run_shell_command(sign_options)
 
 
 def create_server_cert_bundle(server_name, cert_subj):
 
-    server_cert_dir=server_dir+"/"+server_name
+    server_cert_dir = server_dir+"/"+server_name
     try:
         os.mkdir(server_cert_dir)
     except OSError:
